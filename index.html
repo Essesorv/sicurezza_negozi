@@ -207,7 +207,7 @@ table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font
 th,td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
 th:first-child,td:first-child{text-align:left;color:var(--muted)}
 thead th{position:sticky;top:0;background:var(--surface);font-size:13px;font-weight:600;color:var(--muted)}
-tfoot td{font-family:var(--font-num);font-weight:700;font-size:20px;border-bottom:0;color:var(--ink)}
+tfoot td{font-family:var(--font-num);font-weight:700;font-size:17px;border-bottom:0;color:var(--ink)}
 tfoot td:first-child{color:var(--ink);font-family:var(--font-ui);font-size:15px}
 .esito{display:flex;gap:10px;align-items:flex-start;margin:14px 0 0;padding:12px;border-radius:10px;background:var(--paper);font-size:14px}
 .esito.ok{background:rgba(31,140,78,.12)}
@@ -332,7 +332,7 @@ tfoot td:first-child{color:var(--ink);font-family:var(--font-ui);font-size:15px}
       <table>
         <thead><tr><th scope="col">#</th><th scope="col">Importo</th><th scope="col">Coeff.</th><th scope="col">Valore</th></tr></thead>
         <tbody id="tab-corpo"></tbody>
-        <tfoot><tr><td colspan="3">Totale</td><td id="tab-totale"></td></tr></tfoot>
+        <tfoot><tr><td>Totale</td><td id="tab-totale-importo"></td><td></td><td id="tab-totale"></td></tr></tfoot>
       </table>
     </div>
     <div class="bottoni uno">
@@ -385,6 +385,27 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   /* Server locale via Tailscale Funnel */
   var SERVER = { url: "https://pos03.tailbccf78.ts.net" };
   /* ================================================================= */
+
+  /* Auto-aggiornamento: ad ogni apertura scarica l'HTML fresco (senza cache)
+     e, se la versione è cambiata, ricarica la pagina. I dati (localStorage) restano intatti.
+     Per forzare l'aggiornamento su tutti: cambia APP_VERSION a ogni nuovo upload. */
+  var APP_VERSION = "2026-11-03-b";
+  (function(){
+    try {
+      if (!window.fetch || location.protocol === "file:") return;
+      fetch(location.pathname + "?_=" + Date.now(), { cache: "no-store" })
+        .then(function(r){ return r.text(); })
+        .then(function(t){
+          var m = t.match(/var APP_VERSION = "([^"]+)"/);
+          if (!m || m[1] === APP_VERSION) return;
+          var g; try { g = sessionStorage.getItem("sv_reload"); } catch(e){}
+          if (g === m[1]) return; /* evita loop */
+          try { sessionStorage.setItem("sv_reload", m[1]); } catch(e){}
+          location.replace(location.pathname + "?v=" + encodeURIComponent(m[1]));
+        })
+        .catch(function(){});
+    } catch(e){}
+  })();
 
   var CHIAVE_DATI = "sorveglianti:dati:v2";
   var CHIAVE_V1 = "sorveglianti:conteggio:v1";
@@ -754,6 +775,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     });
     el.tabCorpo.replaceChildren(frag);
     el.tabTotale.textContent = euro(somma(lista));
+    var totImporto = Math.round(lista.reduce(function (a, v) { return a + v.importo; }, 0) * 100) / 100;
+    var cellaImp = document.getElementById("tab-totale-importo");
+    if (cellaImp) cellaImp.textContent = euro(totImporto);
     mostraModal(el.dlgTabella);
     inviaSilenzioso(u, k, lista);
   }
@@ -793,6 +817,27 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     } catch(e) { /* silenzioso */ }
   }
 
+  /* Sincronizza TUTTI i sorveglianti e TUTTI i trimestri presenti sul telefono.
+     Gira all'apertura, al ritorno sull'app e ogni 10 minuti: non serve più aprire la Tabella. */
+  var _syncInCorso = false;
+  async function sincronizzaTutto() {
+    if (_syncInCorso || !stato || !stato.utenti) return;
+    _syncInCorso = true;
+    try {
+      if (!stato.invii) stato.invii = {};
+      for (var i = 0; i < stato.utenti.length; i++) {
+        var u = stato.utenti[i];
+        var tutte = (stato.voci && stato.voci[u.id]) || [];
+        var trimestri = {};
+        tutte.forEach(function (v) { trimestri[trimDi(v.t)] = true; });
+        for (var k in trimestri) {
+          await inviaSilenzioso(u, k, vociDi(u, k));
+        }
+      }
+    } catch (e) { /* silenzioso */ }
+    _syncInCorso = false;
+  }
+
   /* ---------- Avvio ---------- */
   function avvia() {
     if (!stato.utenti.length) { apriNome("primo"); return; }
@@ -800,11 +845,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     if (!utente() || stato.attivo !== utente().id) { stato.attivo = utente().id; }
     disegna(false);
   }
-  document.addEventListener("visibilitychange", function () { if (!document.hidden && utente()) disegna(false); });
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && utente()) { disegna(false); sincronizzaTutto(); } });
   setInterval(function () { if (utente() && !vista) disegna(false); }, 60000);
+  setInterval(sincronizzaTutto, 10 * 60 * 1000);
 
   avvia();
   caricaNativo();
+  setTimeout(sincronizzaTutto, 1500);
   
 })();
 </script>
