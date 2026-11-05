@@ -520,6 +520,10 @@ tfoot td{background:var(--paper);border-top:2px solid var(--line)}
 .app{height:100%;height:100dvh;min-height:-webkit-fill-available}
 html,body{height:100%;min-height:100dvh}
 
+/* iOS: il blur dietro le finestre puo' impedire di toccare i campi di testo */
+.modal{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+#splash.via{pointer-events:none}
+
 </style>
 </head>
 <body>
@@ -720,7 +724,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   /* Auto-aggiornamento: ad ogni apertura scarica l'HTML fresco (senza cache)
      e, se la versione è cambiata, ricarica la pagina. I dati (localStorage) restano intatti.
      Per forzare l'aggiornamento su tutti: cambia APP_VERSION a ogni nuovo upload. */
-  var APP_VERSION = "2026-11-05-j";
+  var APP_VERSION = "2026-11-05-k";
   /* Il controllo parte all'apertura E ogni volta che l'app torna in primo piano:
      su iPhone l'app dalla Home spesso non si ricarica, viene solo "ripresa". */
   var _ultimoControllo = 0;
@@ -960,7 +964,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     el.nomeBottoni.classList.toggle("uno", modo === "primo");
     el.nomeInput.value = ""; el.nomeErrore.textContent = "";
     if (!isModalOpen(el.dlgNome)) mostraModal(el.dlgNome);
-    setTimeout(function () { el.nomeInput.focus(); }, 60);
+    /* Su iPhone niente focus automatico: un focus senza tocco blocca la tastiera al tocco successivo */
+    var touch = false; try { touch = matchMedia("(pointer:coarse)").matches; } catch (e) {}
+    if (!touch) setTimeout(function () { if (!document.getElementById("splash")) el.nomeInput.focus(); }, 60);
   }
   el.nomeAnnulla.addEventListener("click", function () { chiudiModal(el.dlgNome); });
   el.nomeInput.addEventListener("keydown", function (e) { if (e.key === "Enter") confermaNome(); });
