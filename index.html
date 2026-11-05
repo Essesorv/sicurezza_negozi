@@ -389,7 +389,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   /* Auto-aggiornamento: ad ogni apertura scarica l'HTML fresco (senza cache)
      e, se la versione è cambiata, ricarica la pagina. I dati (localStorage) restano intatti.
      Per forzare l'aggiornamento su tutti: cambia APP_VERSION a ogni nuovo upload. */
-  var APP_VERSION = "2026-11-03-b";
+  var APP_VERSION = "2026-11-05-m";
   (function(){
     try {
       if (!window.fetch || location.protocol === "file:") return;
@@ -619,10 +619,16 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     el.nomeBottoni.classList.toggle("uno", modo === "primo");
     el.nomeInput.value = ""; el.nomeErrore.textContent = "";
     if (!isModalOpen(el.dlgNome)) mostraModal(el.dlgNome);
-    setTimeout(function () { el.nomeInput.focus(); }, 60);
+    /* iPhone: un focus dato dal codice mette il cursore ma NON apre la tastiera,
+       e poi i tocchi sul campo non la aprono piu'. Sui telefoni quindi niente focus automatico. */
+    var touch = false; try { touch = matchMedia("(pointer:coarse)").matches; } catch (e) {}
+    if (!touch) setTimeout(function () { el.nomeInput.focus(); }, 60);
   }
   el.nomeAnnulla.addEventListener("click", function () { chiudiModal(el.dlgNome); });
   el.nomeInput.addEventListener("keydown", function (e) { if (e.key === "Enter") confermaNome(); });
+  el.nomeInput.addEventListener("touchend", function () {
+    if (document.activeElement === el.nomeInput) { el.nomeInput.blur(); el.nomeInput.focus(); }
+  });
   el.nomeOk.addEventListener("click", confermaNome);
   function confermaNome() {
     var nome = el.nomeInput.value.trim().replace(/\s+/g, " ");
